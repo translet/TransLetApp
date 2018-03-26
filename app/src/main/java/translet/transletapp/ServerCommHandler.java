@@ -1,6 +1,7 @@
 package translet.transletapp;
 
 import android.net.Uri;
+import android.util.Log;
 import org.json.JSONObject;
 
 import java.io.*;
@@ -10,7 +11,20 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class ServerCommHandler {
-    protected String buildAuthURL(String uname, String password) {
+
+    private String accessURL = null;
+    private String TAG = "ServerCommHandler";
+
+    public ServerCommHandler(String host, String port) {
+        this.accessURL = new String(host + ":" + port);
+    }
+
+    public ServerCommHandler() {
+        this.accessURL = Constants.SERVER_URL;
+    }
+
+
+    protected String auth(String uname, String password) {
         HttpURLConnection conn = null;
 
         String ln;
@@ -21,13 +35,12 @@ public class ServerCommHandler {
             Map<String, String> params = new HashMap<String, String>();
             params.put("email", uname);
             params.put("password", password);
-            String accessURL = "http://192.168.5.22:9090/auth/";
 
             Uri.Builder b = new Uri.Builder();
             b.appendQueryParameter("email", uname)
                     .appendQueryParameter("password", password);
             String q = b.build().toString();
-            URL url = new URL(accessURL + q);
+            URL url = new URL(this.accessURL + q);
 
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
@@ -48,12 +61,15 @@ public class ServerCommHandler {
                     buf.append(ln);
                 }
             } else {
-                buf.append("Invalid");
+                Log.e(this.TAG,"Invalid resp(code:"+ respCode+")");
+                buf.append("Auth failed");
             }
         } catch (MalformedURLException e) {
-            return e.getMessage();
+            Log.e(this.TAG, e.getMessage());
+            return "Auth failed";
         } catch (IOException e) {
-            return e.getMessage();
+            Log.e(this.TAG, e.getMessage());
+            return "Auth failed";
         }
 
         return buf.toString();
