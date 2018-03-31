@@ -10,5 +10,17 @@
     <string name="error_invalid_password">This password is too short</string>
     <string name="error_incorrect_password">This password is incorrect</string>
     <string name="error_field_required">This field is required</string>
+    <string name="error_connect">This email address is invalid</string>
     <string name="permission_rationale">"Contacts permissions are needed for providing email completions."</string>
+
+    <!-- Messages and pop up strings -->
+    <string name="connect">Successfully connected</string>
+    <string name="disconnect">Successfully disconnected</string>
+    <string name="message_welcome">Welcome!!</string>
+    <string name="message_user_joined">%s joined the session</string>
+    <string name="message_user_left">%s left the session</string>
+
+    <!-- Strings related to layouts -->
+    <string name="action_send">Send</string>
+    <string name="action_logout">Logout</string>
 </resources>

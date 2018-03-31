@@ -289,7 +289,10 @@ public class LoginActivity extends AppCompatActivity {
                         Integer status = ret.getInt("status");
                         if(status == 0) {
                             mUid = String.valueOf(ret.getInt("uid"));
-                            startMainActivity();
+                            Intent intent = new Intent();
+                            intent.putExtra("uid", mUid);
+                            setResult(RESULT_OK, intent);
+                            finish();
 
                         } else {
                             //TODO: Toast auth failed message and set focus to email
@@ -311,11 +314,5 @@ public class LoginActivity extends AppCompatActivity {
         }
     };
 
-    private void startMainActivity() {
-        Intent intent = new Intent(this, DisplayMessageActivity.class);
-        intent.putExtra(EXTRA_MESSAGE, mUid);
-        startActivity(intent);
-        //finish();
-    }
 }
 
