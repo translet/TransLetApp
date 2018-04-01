@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.Handler;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -34,14 +33,11 @@ public class MainFragment extends Fragment {
 
     private static final int REQUEST_LOGIN = 0;
 
-    private static final int TYPING_TIMER_LENGTH = 600;
-
     private RecyclerView mMessagesView;
     private EditText mInputMessageView;
-    private List<Message> mMessages = new ArrayList<Message>();
+    private List<Message> mMessages = new ArrayList<>();
     private RecyclerView.Adapter mAdapter;
-    private boolean mTyping = false;
-    private Handler mTypingHandler = new Handler();
+
     private String mUsername;
     private Socket mSocket;
 
@@ -59,9 +55,6 @@ public class MainFragment extends Fragment {
     public void onAttach(Context context) {
         super.onAttach(context);
         mAdapter = new MessageAdapter(context, mMessages);
-        if (context instanceof Activity){
-            //this.listener = (MainActivity) context;
-        }
     }
 
 
@@ -77,10 +70,13 @@ public class MainFragment extends Fragment {
         mSocket.on(Socket.EVENT_DISCONNECT,onDisconnect);
         mSocket.on(Socket.EVENT_CONNECT_ERROR, onConnectError);
         mSocket.on(Socket.EVENT_CONNECT_TIMEOUT, onConnectError);
-        mSocket.on("new message", onNewMessage);
-        mSocket.on("user joined", onUserJoined);
-        mSocket.on("user left", onUserLeft);
-        mSocket.connect();
+        /*Communication callbacks*/
+        mSocket.on(Constants.EVENT_USER_JOINED, onUserJoined);
+        mSocket.on(Constants.EVENT_USER_LEFT, onUserLeft);
+        mSocket.on(Constants.EVENT_SESSION_INVITE, onSessionInvite);
+        mSocket.on(Constants.EVENT_SESSION_BROADCAST, onNewMessage);
+        mSocket.on(Constants.EVENT_SESSION_CLOSED, onSessionClosed);
+        //mSocket.connect();
 
         startSignIn();
     }
@@ -101,20 +97,23 @@ public class MainFragment extends Fragment {
         mSocket.off(Socket.EVENT_DISCONNECT, onDisconnect);
         mSocket.off(Socket.EVENT_CONNECT_ERROR, onConnectError);
         mSocket.off(Socket.EVENT_CONNECT_TIMEOUT, onConnectError);
-        mSocket.off("new message", onNewMessage);
-        mSocket.off("user joined", onUserJoined);
-        mSocket.off("user left", onUserLeft);
+        /*Disable communication callbacks*/
+        mSocket.off(Constants.EVENT_USER_JOINED, onUserJoined);
+        mSocket.off(Constants.EVENT_USER_LEFT, onUserLeft);
+        mSocket.off(Constants.EVENT_SESSION_INVITE, onSessionInvite);
+        mSocket.off(Constants.EVENT_SESSION_BROADCAST, onNewMessage);
+        mSocket.off(Constants.EVENT_SESSION_CLOSED, onSessionClosed);
     }
 
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        mMessagesView = (RecyclerView) view.findViewById(R.id.messages);
+        mMessagesView = view.findViewById(R.id.messages);
         mMessagesView.setLayoutManager(new LinearLayoutManager(getActivity()));
         mMessagesView.setAdapter(mAdapter);
 
-        mInputMessageView = (EditText) view.findViewById(R.id.message_input);
+        mInputMessageView = view.findViewById(R.id.message_input);
         mInputMessageView.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView v, int id, KeyEvent event) {
@@ -126,7 +125,7 @@ public class MainFragment extends Fragment {
             }
         });
 
-        ImageButton sendButton = (ImageButton) view.findViewById(R.id.send_button);
+        ImageButton sendButton = view.findViewById(R.id.send_button);
         sendButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -146,7 +145,7 @@ public class MainFragment extends Fragment {
         mUsername = data.getStringExtra("uid");
 
         Toast.makeText(getActivity().getApplicationContext(),
-                getResources().getString(R.string.message_welcome), Toast.LENGTH_SHORT);
+                getResources().getString(R.string.message_welcome), Toast.LENGTH_SHORT).show();
     }
 
     @Override
@@ -182,8 +181,6 @@ public class MainFragment extends Fragment {
     private void attemptSend() {
         if (null == mUsername) return;
         if (!mSocket.connected()) return;
-
-        mTyping = false;
 
         String message = mInputMessageView.getText().toString().trim();
         if (TextUtils.isEmpty(message)) {
@@ -262,6 +259,77 @@ public class MainFragment extends Fragment {
         }
     };
 
+    private Emitter.Listener onUserJoined = new Emitter.Listener() {
+        @Override
+        public void call(final Object... args) {
+            getActivity().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    JSONObject data = (JSONObject) args[0];
+                    String username;
+                    try {
+                        username = data.getString("uid");
+                    } catch (JSONException e) {
+                        Log.e(TAG, e.getMessage());
+                        return;
+                    }
+
+                    Toast.makeText(getActivity().getApplicationContext(),
+                            getResources().getString(R.string.message_user_joined, username), Toast.LENGTH_LONG).show();
+                }
+            });
+        }
+    };
+
+    private Emitter.Listener onUserLeft = new Emitter.Listener() {
+        @Override
+        public void call(final Object... args) {
+            getActivity().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    JSONObject data = (JSONObject) args[0];
+                    String username;
+                    try {
+                        username = data.getString("uid");
+                    } catch (JSONException e) {
+                        Log.e(TAG, e.getMessage());
+                        return;
+                    }
+
+                    Toast.makeText(getActivity().getApplicationContext(),
+                            getResources().getString(R.string.message_user_left, username), Toast.LENGTH_LONG).show();
+                }
+            });
+        }
+    };
+
+    /*TODO: Put intermediate activity for user account view
+            where the session invites/create session activity will be handled
+     */
+    private Emitter.Listener onSessionInvite = new Emitter.Listener() {
+        @Override
+        public void call(final Object... args) {
+            getActivity().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    JSONObject data = (JSONObject) args[0];
+                    String sessionid;
+                    try {
+                        sessionid = data.getString("sessionid");
+                        Toast.makeText(getActivity().getApplicationContext(),
+                                data.getString("message"), Toast.LENGTH_LONG).show();
+                        JSONObject jsonOut = new JSONObject();
+                        jsonOut.put("uid", mUsername);
+                        jsonOut.put("sessionid", sessionid);
+                        mSocket.emit(Constants.EVENT_JOIN_SESSION, jsonOut);
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+        }
+    };
+
     private Emitter.Listener onNewMessage = new Emitter.Listener() {
         @Override
         public void call(final Object... args) {
@@ -285,51 +353,25 @@ public class MainFragment extends Fragment {
         }
     };
 
-    private Emitter.Listener onUserJoined = new Emitter.Listener() {
+    private  Emitter.Listener onSessionClosed = new Emitter.Listener() {
         @Override
         public void call(final Object... args) {
             getActivity().runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     JSONObject data = (JSONObject) args[0];
-                    String username;
-                    int numUsers;
                     try {
-                        username = data.getString("uid");
+                        Toast.makeText(getActivity().getApplicationContext(),
+                                data.getString("message"), Toast.LENGTH_LONG).show();
+
+                        /*TODO: Finish this activity and start User account activity*/
                     } catch (JSONException e) {
-                        Log.e(TAG, e.getMessage());
-                        return;
+                        e.printStackTrace();
                     }
 
-                    Toast.makeText(getActivity().getApplicationContext(),
-                            getResources().getString(R.string.message_user_joined, username), Toast.LENGTH_LONG);
                 }
             });
         }
     };
-
-    private Emitter.Listener onUserLeft = new Emitter.Listener() {
-        @Override
-        public void call(final Object... args) {
-            getActivity().runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    JSONObject data = (JSONObject) args[0];
-                    String username;
-                    int numUsers;
-                    try {
-                        username = data.getString("uid");
-                    } catch (JSONException e) {
-                        Log.e(TAG, e.getMessage());
-                        return;
-                    }
-
-                    Toast.makeText(getActivity().getApplicationContext(),
-                            getResources().getString(R.string.message_user_left, username), Toast.LENGTH_LONG);
-                }
-            });
-        }
-    };
-
 }
 
