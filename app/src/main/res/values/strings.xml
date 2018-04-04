@@ -23,4 +23,6 @@
     <!-- Strings related to layouts -->
     <string name="action_send">Send</string>
     <string name="action_logout">Logout</string>
+    <string name="start_new_session">Start New Session</string>
+    <string name="button_add">Add</string>
 </resources>

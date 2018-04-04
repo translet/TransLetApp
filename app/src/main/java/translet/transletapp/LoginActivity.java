@@ -33,7 +33,7 @@ public class LoginActivity extends AppCompatActivity {
      * Id to identity READ_CONTACTS permission request.
      */
     private static final String TAG = "activity.LoginActivity";
-    public static final String EXTRA_MESSAGE = "app.uid";
+    public static final String EXTRA_MESSAGE = "uid";
 
     /**
      * Keep track of the login task to ensure we can cancel it if requested.
@@ -53,13 +53,15 @@ public class LoginActivity extends AppCompatActivity {
 
         TransLetApp server = (TransLetApp) this.getApplication();
         mSocket = server.getSocket();
+        mSocket.connect();
         mSocket.on(EVENT_LOGIN, onLogin);
 
         setContentView(R.layout.activity_login);
         // Set up the login form.
-        mEmailView = findViewById(R.id.email);
 
-        mPasswordView = findViewById(R.id.password);
+        mEmailView = (EditText)findViewById(R.id.email);
+
+        mPasswordView = (EditText)findViewById(R.id.password);
         mPasswordView.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView textView, int id, KeyEvent keyEvent) {
@@ -71,7 +73,7 @@ public class LoginActivity extends AppCompatActivity {
             }
         });
 
-        Button mEmailSignInButton = findViewById(R.id.email_sign_in_button);
+        Button mEmailSignInButton = (Button)findViewById(R.id.email_sign_in_button);
         mEmailSignInButton.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -138,6 +140,7 @@ public class LoginActivity extends AppCompatActivity {
                 mEmailView.requestFocus();
             }
 
+            Log.d(TAG, jsonAuth.toString());
             mSocket.emit(EVENT_LOGIN, jsonAuth);
         }
     }
@@ -149,7 +152,7 @@ public class LoginActivity extends AppCompatActivity {
 
     private boolean isPasswordValid(String password) {
         //TODO: Replace this with your own logic
-        return password.length() > 4;
+        return true;
     }
 
     /**
@@ -194,6 +197,7 @@ public class LoginActivity extends AppCompatActivity {
                         Integer status = ret.getInt("status");
                         if(status == 0) {
                             mUid = String.valueOf(ret.getInt("uid"));
+                            Log.d(TAG, new String("Received uid:"+mUid));
                             Intent intent = new Intent();
                             intent.putExtra(EXTRA_MESSAGE, mUid);
                             setResult(RESULT_OK, intent);
@@ -203,6 +207,8 @@ public class LoginActivity extends AppCompatActivity {
                             mPasswordView.setText("");
                             mEmailView.setText("");
                             mEmailView.requestFocus();
+                            Toast.makeText(LoginActivity.this.getApplicationContext(),
+                                    Constants.LOGIN_FAILED, Toast.LENGTH_LONG).show();
                         }
 
                     } catch (JSONException e) {

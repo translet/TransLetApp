@@ -39,9 +39,11 @@ public class MainFragment extends Fragment {
     private RecyclerView.Adapter mAdapter;
 
     private String mUsername;
+    private String mSessionid;
     private Socket mSocket;
 
     private Boolean isConnected = true;
+
 
     public MainFragment() {
         super();
@@ -66,19 +68,20 @@ public class MainFragment extends Fragment {
 
         TransLetApp app = (TransLetApp) getActivity().getApplication();
         mSocket = app.getSocket();
-        mSocket.on(Socket.EVENT_CONNECT,onConnect);
+        mSocket.connect();
+        //mSocket.on(Socket.EVENT_CONNECT,onConnect);
         mSocket.on(Socket.EVENT_DISCONNECT,onDisconnect);
         mSocket.on(Socket.EVENT_CONNECT_ERROR, onConnectError);
         mSocket.on(Socket.EVENT_CONNECT_TIMEOUT, onConnectError);
         /*Communication callbacks*/
         mSocket.on(Constants.EVENT_USER_JOINED, onUserJoined);
         mSocket.on(Constants.EVENT_USER_LEFT, onUserLeft);
-        mSocket.on(Constants.EVENT_SESSION_INVITE, onSessionInvite);
         mSocket.on(Constants.EVENT_SESSION_BROADCAST, onNewMessage);
         mSocket.on(Constants.EVENT_SESSION_CLOSED, onSessionClosed);
-        //mSocket.connect();
 
-        startSignIn();
+        Intent intent = getActivity().getIntent();
+        mUsername = intent.getStringExtra("uid");
+        mSessionid = intent.getStringExtra("sessionid");
     }
 
     @Override
@@ -91,18 +94,16 @@ public class MainFragment extends Fragment {
     public void onDestroy() {
         super.onDestroy();
 
-        mSocket.disconnect();
-
-        mSocket.off(Socket.EVENT_CONNECT, onConnect);
+        //mSocket.off(Socket.EVENT_CONNECT, onConnect);
         mSocket.off(Socket.EVENT_DISCONNECT, onDisconnect);
         mSocket.off(Socket.EVENT_CONNECT_ERROR, onConnectError);
         mSocket.off(Socket.EVENT_CONNECT_TIMEOUT, onConnectError);
         /*Disable communication callbacks*/
         mSocket.off(Constants.EVENT_USER_JOINED, onUserJoined);
         mSocket.off(Constants.EVENT_USER_LEFT, onUserLeft);
-        mSocket.off(Constants.EVENT_SESSION_INVITE, onSessionInvite);
         mSocket.off(Constants.EVENT_SESSION_BROADCAST, onNewMessage);
         mSocket.off(Constants.EVENT_SESSION_CLOSED, onSessionClosed);
+
     }
 
     @Override
@@ -132,20 +133,6 @@ public class MainFragment extends Fragment {
                 attemptSend();
             }
         });
-    }
-
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (Activity.RESULT_OK != resultCode) {
-            getActivity().finish();
-            return;
-        }
-
-        mUsername = data.getStringExtra("uid");
-
-        Toast.makeText(getActivity().getApplicationContext(),
-                getResources().getString(R.string.message_welcome), Toast.LENGTH_SHORT).show();
     }
 
     @Override
@@ -195,23 +182,24 @@ public class MainFragment extends Fragment {
         mSocket.emit("new message", message);
     }
 
-    private void startSignIn() {
-        mUsername = null;
-        Intent intent = new Intent(getActivity(), LoginActivity.class);
-        startActivityForResult(intent, REQUEST_LOGIN);
-    }
-
     private void leave() {
         mUsername = null;
-        mSocket.disconnect();
-        mSocket.connect();
-        startSignIn();
+        JSONObject data = new JSONObject();
+        try {
+            data.put("uid", mUsername);
+            data.put("sessionid", mSessionid);
+            mSocket.emit("leave_session", data);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        getActivity().finish();
     }
 
     private void scrollToBottom() {
         mMessagesView.scrollToPosition(mAdapter.getItemCount() - 1);
     }
 
+    /*
     private Emitter.Listener onConnect = new Emitter.Listener() {
         @Override
         public void call(Object... args) {
@@ -228,7 +216,7 @@ public class MainFragment extends Fragment {
                 }
             });
         }
-    };
+    }; */
 
     private Emitter.Listener onDisconnect = new Emitter.Listener() {
         @Override
@@ -298,33 +286,6 @@ public class MainFragment extends Fragment {
 
                     Toast.makeText(getActivity().getApplicationContext(),
                             getResources().getString(R.string.message_user_left, username), Toast.LENGTH_LONG).show();
-                }
-            });
-        }
-    };
-
-    /*TODO: Put intermediate activity for user account view
-            where the session invites/create session activity will be handled
-     */
-    private Emitter.Listener onSessionInvite = new Emitter.Listener() {
-        @Override
-        public void call(final Object... args) {
-            getActivity().runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    JSONObject data = (JSONObject) args[0];
-                    String sessionid;
-                    try {
-                        sessionid = data.getString("sessionid");
-                        Toast.makeText(getActivity().getApplicationContext(),
-                                data.getString("message"), Toast.LENGTH_LONG).show();
-                        JSONObject jsonOut = new JSONObject();
-                        jsonOut.put("uid", mUsername);
-                        jsonOut.put("sessionid", sessionid);
-                        mSocket.emit(Constants.EVENT_JOIN_SESSION, jsonOut);
-                    } catch (JSONException e) {
-                        e.printStackTrace();
-                    }
                 }
             });
         }
